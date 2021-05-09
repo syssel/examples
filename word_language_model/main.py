@@ -52,8 +52,19 @@ parser.add_argument('--nhead', type=int, default=2,
                     help='the number of heads in the encoder/decoder of the transformer model')
 parser.add_argument('--dry-run', action='store_true',
                     help='verify the code and the model')
+parser.add_argument('--log-file', type=str, default='',
+                    help='path to save log')                    
 
 args = parser.parse_args()
+
+if args.log_file:
+    import logging
+    # Not the best solution but writes print statements to log
+    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
+    logger = logging.getLogger()
+    logger.addHandler(logging.FileHandler(args.log_file, 'a'))
+    print = logger.info
+    logger.info("\nRun with parameters:\n{}".format(args))
 
 # Set the random seed manually for reproducibility.
 torch.manual_seed(args.seed)
