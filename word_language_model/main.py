@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.onnx
 
 import data
-import model
+import model as model_class
 
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM/GRU/Transformer Language Model')
 parser.add_argument('--data', type=str, default='./data/wikitext-2',
@@ -43,6 +43,8 @@ parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str, default='model.pt',
                     help='path to save the final model')
+parser.add_argument('--save-state-dict', action='store_true',
+                    help='if model should be saved as state_dict')                    
 parser.add_argument('--onnx-export', type=str, default='',
                     help='path to export the final model in onnx format')
 
@@ -99,9 +101,9 @@ test_data = batchify(corpus.test, eval_batch_size)
 
 ntokens = len(corpus.dictionary)
 if args.model == 'Transformer':
-    model = model.TransformerModel(ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout).to(device)
+    model = model_class.TransformerModel(ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout).to(device)
 else:
-    model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
+    model = model_class.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
 
 criterion = nn.NLLLoss()
 
@@ -224,7 +226,15 @@ try:
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
             with open(args.save, 'wb') as f:
-                torch.save(model, f)
+                if args.save_state_dict:
+                    if args.model == 'Transformer':
+                        model_par = (ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout)
+                    else:
+                        model_par = (args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
+                    torch.save({"state_dict": model.state_dict(), "args": model_par}, f)
+                    
+                else:
+                    torch.save(model, f)
             best_val_loss = val_loss
         else:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
@@ -235,7 +245,18 @@ except KeyboardInterrupt:
 
 # Load the best saved model.
 with open(args.save, 'rb') as f:
-    model = torch.load(f)
+    if args.save_state_dict:
+        model_dict = torch.load(f)
+
+        if args.model == 'Transformer':
+            model = model_class.TransformerModel(*model_dict["args"])
+        else:
+            model = model_class.RNNModel(*model_dict["args"])
+        
+        model.load_state_dict(model_dict["state_dict"])
+
+    else:    
+        model = torch.load(f)
     # after load the rnn params are not a continuous chunk of memory
     # this makes them a continuous chunk, and will speed up forward pass
     # Currently, only rnn model supports flatten_parameters function.
