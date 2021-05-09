@@ -231,7 +231,7 @@ try:
                         model_par = (ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout)
                     else:
                         model_par = (args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
-                    torch.save({"state_dict": model.state_dict(), "args": model_par}, f)
+                    torch.save({"state_dict": model.state_dict(), "args": model_par, "vocab": corpus.dictionary.idx2word}, f)
                     
                 else:
                     torch.save(model, f)
